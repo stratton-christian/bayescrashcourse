@@ -243,13 +243,42 @@ Let's use nimble and stan to estimate the $\lambda$ parameter of the Poisson dis
 
 ### Nimble
 
+Step 1: 
+
+**Likelihood/sampling model**
+
+$$
+\begin{split}
+y_i \sim \text{Poisson}(\lambda) 
+\end{split}
+$$
+
+**Priors** (pick one of these)
+
+$$
+\begin{split}
+\lambda &\sim \text{N}_{(0, \infty)}(0, 100) \\
+\log \lambda &\sim N(0, 100) \\
+\lambda &\sim \text{Uniform}(0, 10000) \\
+\lambda &\sim \text{Gamma}(.001, .001)
+\end{split}
+$$
+
+```{r}
+# inspect priors
+hist(abs(rnorm(10000, 0, 100))) # first prior
+hist(exp(rnorm(10000, 0, 100))) # second prior
+hist(runif(10000, 0, 100000)) # third prior
+hist(rgamma(10000, .001, .001), xlim = c(0, 100), breaks = 50) # four prior
+```
+
 ```{r, eval = F}
 # nimble code for model
 code <- nimbleCode({
   # priors 
   lambda ~ T(dnorm(0, sd = 100), 0, Inf) # half-normal prior
   
-  # likelihood
+  # likelihood as a loop
   for(i in 1:n){
     y[i] ~ dpois(lambda)
   }
@@ -257,9 +286,10 @@ code <- nimbleCode({
 
 # build model
 rmodel <- nimbleModel(
-  code = code,
-  data = list(y = y),
-  constants = list(n = length(y))
+  code = code, # model code
+  data = list(y = y), # list of data (the random stuff)
+  constants = list(n = length(y)), 
+  inits = list(lambda = 500)
 ) # model in R
 cmodel <- compileNimble(rmodel) # model in C++
 
@@ -271,12 +301,13 @@ cmcmc <- compileNimble(rmcmc, project = cmodel) # MCMC in C++
 # run the MCMC
 samples <- runMCMC(
   cmcmc,
-  niter = 2000,
-  nburnin = 1000,
-  thin = 1,
-  nchains = 4, 
+  niter = 10000, # number of posterior samples
+  nburnin = 5000, # how many posterior samples to discard
+  thin = 1, # interval of samples to keep 
+  nchains = 4, # number of independent Markov chains to run 
   samplesAsCodaMCMC = TRUE # nice formatting
 )
+
 ```
 
 ```{r, eval = F}
@@ -332,11 +363,11 @@ for(i in 1:nrow(ppc)){
 
 # check out a few
 bayesplot::pp_check(
-  y, ppc[1:50,], ppc_dens_overlay
+  y, ppc[sample(1:nrow(ppc), 100),], ppc_dens_overlay
 )
 
 # can do it by hand to make it look a little nicer
-ppc_df <- t(rbind(y, ppc[sample(1:nrow(ppc), 50), ])) %>%
+ppc_df <- t(rbind(y, ppc[sample(1:nrow(ppc), 100), ])) %>%
   as_tibble() %>%
   pivot_longer(everything(), names_to = "var", values_to = "val") %>%
   mutate(obs = ifelse(var == "y", "y", "yrep")) 
@@ -401,6 +432,7 @@ fit <- stan_mod$sample(
 library(posterior)
 library(coda)
 library(cmdstanr)
+library(ggmcmc)
 samples_array <- fit$draws() # new array format
 samples <- mcmc.list(
   lapply(1:posterior::nchains(samples_array), function(i) {

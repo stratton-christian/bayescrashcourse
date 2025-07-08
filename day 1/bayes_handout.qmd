@@ -491,11 +491,12 @@ ggplot() +
   ) +  
   geom_density(
     data = ppc_df %>% filter(obs == "y"),
-    aes(x = val), size = 1.1
+    aes(x = val), linewidth = 1.1
   ) + 
   theme_bw() +
   labs(x = "")
 ```
+
 
 ### Summarizing
 
@@ -508,23 +509,3 @@ Upon estimating a model using MCMC, you should:
 - Create posterior predictive checks to assess how well your model is fitting the observed data
 
 \newpage
-
-## Real-data example
-
-Now let's practice on some real data! We will use a subset of the data is Anna is working with. 
-
-```{r}
-weeds <- readRDS("bcc_dat.rds") %>% dplyr::select(Number_Tre:first3, Year_)
-weeds
-```
-
-There are a number of potential questions to investigate for these data, including:
-
-1. `Number_Tre ~ PCT_ZoneTr`
-
-2. `Number_Tre ~ PCT_ZoneTr * Code`
-
-3. `Number_Tre ~ PCT_ZoneTr * Code + first3`
-
-For each, write out the model including the priors, and fit the model using either `nimble` or `stan`. Provide posterior summaries and interpret the results. 
-
